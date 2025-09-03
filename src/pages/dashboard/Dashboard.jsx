@@ -56,7 +56,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -122,15 +122,15 @@ const Dashboard = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-africell-primary to-africell-secondary rounded-2xl p-8 text-white"
+        className="p-8 text-white rounded-2xl bg-africell-primary"
       >
-        <h1 className="text-3xl font-bold mb-2">
+        <h1 className="mb-2 text-3xl font-bold">
           Welcome back, {user?.fullName || user?.username}!
         </h1>
-        <p className="text-white text-lg">
+        <p className="text-lg text-white">
           Here's what's happening with your requests today.
         </p>
-        <div className="mt-4 flex items-center gap-2 text-sm">
+        <div className="flex gap-2 items-center mt-4 text-sm">
           <Calendar className="w-4 h-4" />
           <span>{new Date().toLocaleDateString('en-US', { 
             weekday: 'long',
@@ -143,20 +143,20 @@ const Dashboard = () => {
 
       {/* Request Statistics */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Request Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Request Overview</h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {statCards.map((card, index) => (
             <motion.div
               key={card.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-gray-600 text-sm font-medium">{card.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
+                  <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{card.value}</p>
                 </div>
                 <div className={`p-3 rounded-lg ${card.bgColor}`}>
                   <card.icon className={`w-6 h-6 ${card.textColor}`} />
@@ -170,20 +170,20 @@ const Dashboard = () => {
       {/* Approval Statistics (for approvers) */}
       {(isAdmin() || stats.pendingApprovals > 0) && (
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Approval Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <h2 className="mb-4 text-xl font-semibold text-gray-900">Approval Overview</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {approvalCards.map((card, index) => (
               <motion.div
                 key={card.title}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-gray-600 text-sm font-medium">{card.title}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
+                    <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                    <p className="mt-1 text-3xl font-bold text-gray-900">{card.value}</p>
                   </div>
                   <div className={`p-3 rounded-lg ${card.bgColor}`}>
                     <card.icon className={`w-6 h-6 ${card.textColor}`} />
@@ -197,20 +197,20 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Actions</h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm"
           >
             <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-africell-primary to-africell-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+              <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 bg-gradient-to-r rounded-lg from-africell-primary to-africell-secondary">
                 <FileText className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Create New Request</h3>
-              <p className="text-gray-600 text-sm mb-4">
+              <h3 className="mb-2 font-semibold text-gray-900">Create New Request</h3>
+              <p className="mb-4 text-sm text-gray-600">
                 Start a new request using available templates
               </p>
               <Button variant="primary" size="sm" className="w-full">
@@ -223,14 +223,14 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm"
           >
             <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg">
                 <CheckCircle className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Pending Approvals</h3>
-              <p className="text-gray-600 text-sm mb-4">
+              <h3 className="mb-2 font-semibold text-gray-900">Pending Approvals</h3>
+              <p className="mb-4 text-sm text-gray-600">
                 Review and process pending approvals
               </p>
               <Button variant="outline" size="sm" className="w-full">
@@ -243,14 +243,14 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm"
           >
             <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">View Reports</h3>
-              <p className="text-gray-600 text-sm mb-4">
+              <h3 className="mb-2 font-semibold text-gray-900">View Reports</h3>
+              <p className="mb-4 text-sm text-gray-600">
                 Access analytics and detailed reports
               </p>
               <Button variant="ghost" size="sm" className="w-full">
@@ -263,11 +263,11 @@ const Dashboard = () => {
 
       {/* Recent Activity Placeholder */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Recent Activity</h2>
+        <div className="p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="text-center text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">Recent Activity Coming Soon</p>
+            <FileText className="mx-auto mb-4 w-12 h-12 opacity-50" />
+            <p className="mb-2 text-lg font-medium">Recent Activity Coming Soon</p>
             <p className="text-sm">
               This section will show your recent requests and approval activities.
             </p>

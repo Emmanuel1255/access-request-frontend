@@ -43,6 +43,8 @@ function App() {
             } 
           />
           
+         
+          
           {/* Protected routes */}
           <Route 
             path="/*" 
@@ -71,7 +73,7 @@ function App() {
             <Route path="profile" element={<ProfileSettings />} />
             <Route path="access" element={<AccessPassVerifier />} />
             <Route path="verify/:number" element={<VerifyAccessPass />} />
-            <Route path="access-logs" element={<AccessLogs />} />            
+            <Route path="access-logs" element={<AccessLogs />} />        
           </Route>
           
           {/* Fallback */}

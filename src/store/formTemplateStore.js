@@ -1,190 +1,333 @@
+// src/store/formTemplateStore.js
 import { create } from 'zustand';
-import { demoFormTemplates } from '../data/demoData';
-import toast from 'react-hot-toast';
+import { formTemplateService } from '../services';
+import { handleApiError, handleApiSuccess } from '../utils/errorHandler';
 
 const useFormTemplateStore = create((set, get) => ({
+  // State
   templates: [],
   currentTemplate: null,
+  categories: [],
   loading: false,
   error: null,
-  
-  // Fetch form templates
-  fetchTemplates: async () => {
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  },
+  filters: {
+    search: '',
+    category: '',
+    isActive: true,
+    sortBy: 'templateName',
+    sortOrder: 'asc'
+  },
+
+  // Actions
+  fetchTemplates: async (params = {}) => {
     set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const { filters } = get();
+      const queryParams = { ...filters, ...params };
       
-      // Filter active templates
-      const activeTemplates = demoFormTemplates.filter(template => template.isActive);
+      const response = await formTemplateService.getTemplates(queryParams);
       
       set({
-        templates: activeTemplates,
-        loading: false
+        templates: response.templates,
+        pagination: response.pagination,
+        loading: false,
+        error: null
       });
+      
+      return {
+        success: true,
+        templates: response.templates,
+        pagination: response.pagination
+      };
     } catch (error) {
-      console.error('Failed to fetch templates:', error);
-      set({ error: error.message, loading: false });
-      toast.error('Failed to fetch form templates');
+      const errorInfo = handleApiError(error, 'Failed to fetch templates');
+      set({
+        loading: false,
+        error: errorInfo.message,
+        templates: [],
+        pagination: { page: 1, limit: 20, total: 0, pages: 0 }
+      });
+      throw error;
     }
   },
 
-  // Fetch single template
   fetchTemplate: async (templateId) => {
     set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 200));
+      const response = await formTemplateService.getTemplateById(templateId);
       
-      const template = demoFormTemplates.find(t => t.id === templateId);
-      
-      if (!template) {
-        throw new Error('Template not found');
-      }
-
-      set({ 
-        currentTemplate: template, 
-        loading: false 
+      set({
+        currentTemplate: response.template,
+        loading: false,
+        error: null
       });
       
-      return template;
+      return {
+        success: true,
+        template: response.template
+      };
     } catch (error) {
-      console.error('Failed to fetch template:', error);
-      set({ error: error.message, loading: false });
-      toast.error('Failed to fetch template');
+      const errorInfo = handleApiError(error, 'Failed to fetch template details');
+      set({
+        loading: false,
+        error: errorInfo.message,
+        currentTemplate: null
+      });
       throw error;
     }
   },
 
-  // Create new template
   createTemplate: async (templateData) => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const response = await formTemplateService.createTemplate(templateData);
       
-      const authStore = (await import('./authStore')).default;
-      const currentUser = authStore.getState().user;
+      // Add to templates list if currently loaded
+      const { templates } = get();
+      const updatedTemplates = [response.template, ...templates];
       
-      const newTemplate = {
-        id: Math.max(...demoFormTemplates.map(t => t.id)) + 1,
-        createdBy: currentUser.id,
-        isActive: true,
-        version: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        ...templateData
+      set({
+        templates: updatedTemplates,
+        currentTemplate: response.template,
+        loading: false,
+        error: null
+      });
+      
+      handleApiSuccess(response.message || 'Template created successfully!');
+      
+      return {
+        success: true,
+        template: response.template,
+        message: response.message
       };
-      
-      demoFormTemplates.push(newTemplate);
-      
-      // Refresh templates
-      await get().fetchTemplates();
-      
-      toast.success('Template created successfully');
-      set({ loading: false });
-      
-      return newTemplate;
     } catch (error) {
-      console.error('Failed to create template:', error);
-      set({ loading: false });
-      toast.error('Failed to create template');
+      const errorInfo = handleApiError(error, 'Failed to create template');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
       throw error;
     }
   },
 
-  // Update template
-  updateTemplate: async (templateId, updates) => {
-    set({ loading: true });
+  updateTemplate: async (templateId, templateData) => {
+    set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const response = await formTemplateService.updateTemplate(templateId, templateData);
       
-      const templateIndex = demoFormTemplates.findIndex(t => t.id === templateId);
-      if (templateIndex === -1) {
-        throw new Error('Template not found');
-      }
+      // Update in templates list
+      const { templates } = get();
+      const updatedTemplates = templates.map(template => 
+        template.id === parseInt(templateId) ? response.template : template
+      );
       
-      demoFormTemplates[templateIndex] = {
-        ...demoFormTemplates[templateIndex],
-        ...updates,
-        updatedAt: new Date().toISOString()
+      set({
+        templates: updatedTemplates,
+        currentTemplate: response.template,
+        loading: false,
+        error: null
+      });
+      
+      handleApiSuccess(response.message || 'Template updated successfully!');
+      
+      return {
+        success: true,
+        template: response.template,
+        message: response.message
       };
-      
-      // Update current template if it's the same
-      const { currentTemplate } = get();
-      if (currentTemplate?.id === templateId) {
-        set({ currentTemplate: demoFormTemplates[templateIndex] });
-      }
-      
-      // Refresh templates
-      await get().fetchTemplates();
-      
-      toast.success('Template updated successfully');
-      set({ loading: false });
-      
-      return demoFormTemplates[templateIndex];
     } catch (error) {
-      console.error('Failed to update template:', error);
-      set({ loading: false });
-      toast.error('Failed to update template');
+      const errorInfo = handleApiError(error, 'Failed to update template');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
       throw error;
     }
   },
 
-  // Delete template
   deleteTemplate: async (templateId) => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 400));
+      const response = await formTemplateService.deleteTemplate(templateId);
       
-      const templateIndex = demoFormTemplates.findIndex(t => t.id === templateId);
-      if (templateIndex === -1) {
-        throw new Error('Template not found');
+      // Remove from templates list
+      const { templates } = get();
+      const updatedTemplates = templates.filter(template => 
+        template.id !== parseInt(templateId)
+      );
+      
+      set({
+        templates: updatedTemplates,
+        loading: false,
+        error: null
+      });
+      
+      // Clear current template if it was the deleted one
+      const { currentTemplate } = get();
+      if (currentTemplate?.id === parseInt(templateId)) {
+        set({ currentTemplate: null });
       }
       
-      // Soft delete
-      demoFormTemplates[templateIndex].isActive = false;
-      demoFormTemplates[templateIndex].updatedAt = new Date().toISOString();
+      handleApiSuccess(response.message || 'Template deleted successfully!');
       
-      // Refresh templates
-      await get().fetchTemplates();
-      
-      toast.success('Template deleted successfully');
-      set({ loading: false });
+      return {
+        success: true,
+        message: response.message
+      };
     } catch (error) {
-      console.error('Failed to delete template:', error);
-      set({ loading: false });
-      toast.error('Failed to delete template');
+      const errorInfo = handleApiError(error, 'Failed to delete template');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
       throw error;
     }
   },
 
-  // Get categories
-  getCategories: () => {
-    const categories = [...new Set(demoFormTemplates.map(t => t.category).filter(Boolean))];
-    return categories.sort();
+  cloneTemplate: async (templateId, newName) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const response = await formTemplateService.cloneTemplate(templateId, newName);
+      
+      // Add cloned template to templates list
+      const { templates } = get();
+      const updatedTemplates = [response.template, ...templates];
+      
+      set({
+        templates: updatedTemplates,
+        currentTemplate: response.template,
+        loading: false,
+        error: null
+      });
+      
+      handleApiSuccess(response.message || 'Template cloned successfully!');
+      
+      return {
+        success: true,
+        template: response.template,
+        message: response.message
+      };
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'Failed to clone template');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
+      throw error;
+    }
   },
 
-  // Clear current template
-  clearCurrentTemplate: () => {
-    set({ currentTemplate: null });
+  fetchCategories: async () => {
+    try {
+      const response = await formTemplateService.getCategories();
+      
+      set({ categories: response.categories });
+      
+      return {
+        success: true,
+        categories: response.categories
+      };
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'Failed to fetch categories', false);
+      set({ categories: [] });
+      throw error;
+    }
   },
 
-  // Reset store
-  reset: () => {
-    set({
-      templates: [],
-      currentTemplate: null,
-      loading: false,
-      error: null
+  validateSchema: async (formSchema) => {
+    try {
+      const response = await formTemplateService.validateSchema(formSchema);
+      
+      return {
+        success: response.isValid,
+        isValid: response.isValid,
+        errors: response.errors,
+        message: response.message
+      };
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'Schema validation failed', false);
+      return {
+        success: false,
+        isValid: false,
+        errors: error.errors || [errorInfo.message],
+        message: errorInfo.message
+      };
+    }
+  },
+
+  // Filter and pagination actions
+  setFilters: (newFilters) => {
+    set({ 
+      filters: { ...get().filters, ...newFilters },
+      pagination: { ...get().pagination, page: 1 } // Reset to first page
     });
+    // Auto-fetch with new filters
+    get().fetchTemplates();
+  },
+
+  setPage: (page) => {
+    set({ 
+      pagination: { ...get().pagination, page }
+    });
+    // Auto-fetch with new page
+    get().fetchTemplates({ page });
+  },
+
+  setLimit: (limit) => {
+    set({ 
+      pagination: { ...get().pagination, limit, page: 1 }
+    });
+    // Auto-fetch with new limit
+    get().fetchTemplates({ limit, page: 1 });
+  },
+
+  // Clear actions
+  clearCurrentTemplate: () => set({ currentTemplate: null }),
+  clearError: () => set({ error: null }),
+  clearTemplates: () => set({ 
+    templates: [], 
+    pagination: { page: 1, limit: 20, total: 0, pages: 0 } 
+  }),
+
+  // Search action
+  searchTemplates: (searchTerm) => {
+    get().setFilters({ search: searchTerm });
+  },
+
+  // Category filter action
+  filterByCategory: (category) => {
+    get().setFilters({ category });
+  },
+
+  // Active filter action
+  filterByActive: (isActive) => {
+    get().setFilters({ isActive });
+  },
+
+  // Get template by ID from current templates (avoid API call if already loaded)
+  getTemplateById: (templateId) => {
+    const { templates } = get();
+    return templates.find(template => template.id === parseInt(templateId)) || null;
+  },
+
+  // Refresh current data
+  refresh: () => {
+    get().fetchTemplates();
+    if (get().categories.length === 0) {
+      get().fetchCategories();
+    }
   }
 }));
 

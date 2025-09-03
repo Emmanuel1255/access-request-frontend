@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { initializeStores } from './store';
+
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -30,6 +32,10 @@ import SettingsPage from './pages/settings/SettingsPage';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
+  useEffect(() => {
+    // Initialize all stores when app loads
+    initializeStores();
+  }, []);
 
   return (
     <Router>
@@ -81,7 +87,7 @@ function App() {
         </Routes>
         
         {/* Global toast notifications */}
-        <Toaster
+        <Toaster 
           position="top-right"
           toastOptions={{
             duration: 4000,
@@ -91,9 +97,16 @@ function App() {
             },
             success: {
               duration: 3000,
-              theme: {
-                primary: '#10b981',
-                secondary: 'black',
+              iconTheme: {
+                primary: '#4ade80',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              duration: 5000,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
               },
             },
           }}

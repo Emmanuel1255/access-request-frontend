@@ -1,304 +1,245 @@
+// src/store/userStore.js
 import { create } from 'zustand';
-import { demoUsers, USER_ROLES } from '../data/demoData';
-import toast from 'react-hot-toast';
+import { userService } from '../services';
+import { handleApiError, handleApiSuccess } from '../utils/errorHandler';
 
 const useUserStore = create((set, get) => ({
+  // State
   users: [],
   currentUser: null,
   loading: false,
   error: null,
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  },
   filters: {
     search: '',
     role: '',
     department: '',
-    status: '',
-    page: 1,
-    limit: 10,
-    sortBy: 'fullName',
+    isActive: true,
+    sortBy: 'username',
     sortOrder: 'asc'
   },
-  pagination: {
-    page: 1,
-    limit: 10,
-    total: 0,
-    pages: 0
-  },
 
-  // Fetch users with filters and pagination
-  fetchUsers: async () => {
+  // Actions
+  fetchUsers: async (params = {}) => {
     set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       const { filters } = get();
-      let filteredUsers = [...demoUsers];
-
-      // Apply filters
-      if (filters.search) {
-        filteredUsers = filteredUsers.filter(user =>
-          user.fullName?.toLowerCase().includes(filters.search.toLowerCase()) ||
-          user.username?.toLowerCase().includes(filters.search.toLowerCase()) ||
-          user.email?.toLowerCase().includes(filters.search.toLowerCase())
-        );
-      }
-
-      if (filters.role) {
-        filteredUsers = filteredUsers.filter(user => user.role === filters.role);
-      }
-
-      if (filters.department) {
-        filteredUsers = filteredUsers.filter(user => user.department === filters.department);
-      }
-
-      if (filters.status !== '') {
-        const isActive = filters.status === 'active';
-        filteredUsers = filteredUsers.filter(user => user.isActive === isActive);
-      }
-
-      // Apply sorting
-      filteredUsers.sort((a, b) => {
-        const aValue = a[filters.sortBy] || '';
-        const bValue = b[filters.sortBy] || '';
-        
-        if (filters.sortOrder === 'asc') {
-          return aValue.localeCompare(bValue);
-        } else {
-          return bValue.localeCompare(aValue);
-        }
-      });
-
-      // Apply pagination
-      const total = filteredUsers.length;
-      const pages = Math.ceil(total / filters.limit);
-      const startIndex = (filters.page - 1) * filters.limit;
-      const endIndex = startIndex + filters.limit;
-      const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
-
+      const queryParams = { ...filters, ...params };
+      
+      const response = await userService.getUsers(queryParams);
+      
       set({
-        users: paginatedUsers,
-        pagination: {
-          page: filters.page,
-          limit: filters.limit,
-          total,
-          pages
-        },
-        loading: false
+        users: response.users,
+        pagination: response.pagination,
+        loading: false,
+        error: null
       });
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      set({ error: error.message, loading: false });
-      toast.error('Failed to fetch users');
-    }
-  },
-
-  // Create new user
-  createUser: async (userData) => {
-    set({ loading: true });
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
       
-      const newUser = {
-        id: Math.max(...demoUsers.map(u => u.id)) + 1,
-        ...userData,
-        createdAt: new Date().toISOString(),
-        isActive: true
+      return {
+        success: true,
+        users: response.users,
+        pagination: response.pagination
       };
-      
-      demoUsers.push(newUser);
-      
-      // Refresh users list
-      await get().fetchUsers();
-      
-      toast.success('User created successfully');
-      set({ loading: false });
-      
-      return newUser;
     } catch (error) {
-      console.error('Failed to create user:', error);
-      set({ loading: false });
-      toast.error('Failed to create user');
+      const errorInfo = handleApiError(error, 'Failed to fetch users');
+      set({
+        loading: false,
+        error: errorInfo.message,
+        users: [],
+        pagination: { page: 1, limit: 20, total: 0, pages: 0 }
+      });
       throw error;
     }
   },
 
-  // Update user
-  updateUser: async (userId, updates) => {
-    set({ loading: true });
+  fetchUser: async (userId) => {
+    set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const response = await userService.getUserById(userId);
       
-      const userIndex = demoUsers.findIndex(u => u.id === userId);
-      if (userIndex === -1) {
-        throw new Error('User not found');
-      }
+      set({
+        currentUser: response.user,
+        loading: false,
+        error: null
+      });
       
-      demoUsers[userIndex] = {
-        ...demoUsers[userIndex],
-        ...updates,
-        updatedAt: new Date().toISOString()
+      return {
+        success: true,
+        user: response.user
       };
-      
-      // Refresh users list
-      await get().fetchUsers();
-      
-      toast.success('User updated successfully');
-      set({ loading: false });
-      
-      return demoUsers[userIndex];
     } catch (error) {
-      console.error('Failed to update user:', error);
-      set({ loading: false });
-      toast.error('Failed to update user');
+      const errorInfo = handleApiError(error, 'Failed to fetch user details');
+      set({
+        loading: false,
+        error: errorInfo.message,
+        currentUser: null
+      });
       throw error;
     }
   },
 
-  // Delete user
-  deleteUser: async (userId) => {
-    set({ loading: true });
+  updateUser: async (userId, userData) => {
+    set({ loading: true, error: null });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 400));
+      const response = await userService.updateUser(userId, userData);
       
-      const userIndex = demoUsers.findIndex(u => u.id === userId);
-      if (userIndex === -1) {
-        throw new Error('User not found');
-      }
-      
-      demoUsers.splice(userIndex, 1);
-      
-      // Refresh users list
-      await get().fetchUsers();
-      
-      toast.success('User deleted successfully');
-      set({ loading: false });
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-      set({ loading: false });
-      toast.error('Failed to delete user');
-      throw error;
-    }
-  },
-
-  // Set filters
-  setFilters: (newFilters) => {
-    set({
-      filters: { ...get().filters, ...newFilters }
-    });
-  },
-
-  // Export users
-  exportUsers: async () => {
-    try {
+      // Update in users list
       const { users } = get();
+      const updatedUsers = users.map(user => 
+        user.id === parseInt(userId) ? response.user : user
+      );
       
-      // Create CSV content
-      const headers = ['Name', 'Username', 'Email', 'Role', 'Department', 'Status', 'Last Login'];
-      const csvContent = [
-        headers.join(','),
-        ...users.map(user => [
-          user.fullName || '',
-          user.username || '',
-          user.email || '',
-          user.role || '',
-          user.department || '',
-          user.isActive ? 'Active' : 'Inactive',
-          user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'
-        ].join(','))
-      ].join('\n');
+      set({
+        users: updatedUsers,
+        currentUser: response.user,
+        loading: false,
+        error: null
+      });
       
-      // Download file
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      handleApiSuccess(response.message || 'User updated successfully!');
       
-      toast.success('Users exported successfully');
+      return {
+        success: true,
+        user: response.user,
+        message: response.message
+      };
     } catch (error) {
-      console.error('Failed to export users:', error);
-      toast.error('Failed to export users');
+      const errorInfo = handleApiError(error, 'Failed to update user');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
+      throw error;
     }
   },
 
-  // Sync with Active Directory
-  syncWithAD: async () => {
-    set({ loading: true });
+  getProfile: async () => {
+    set({ loading: true, error: null });
     
     try {
-      // Simulate AD sync
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await userService.getProfile();
       
-      // Add some demo synced users
-      const syncedUsers = [
-        {
-          id: Math.max(...demoUsers.map(u => u.id)) + 1,
-          username: 'sarah.wilson',
-          email: 'sarah.wilson@company.com',
-          fullName: 'Sarah Wilson',
-          role: 'user',
-          department: 'Marketing',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          lastSyncedAt: new Date().toISOString()
-        }
-      ];
+      set({
+        currentUser: response.user,
+        loading: false,
+        error: null
+      });
       
-      demoUsers.push(...syncedUsers);
-      
-      // Refresh users list
-      await get().fetchUsers();
-      
-      toast.success(`Synced ${syncedUsers.length} users from Active Directory`);
-      set({ loading: false });
+      return {
+        success: true,
+        user: response.user
+      };
     } catch (error) {
-      console.error('Failed to sync with AD:', error);
-      set({ loading: false });
-      toast.error('Failed to sync with Active Directory');
+      const errorInfo = handleApiError(error, 'Failed to fetch profile');
+      set({
+        loading: false,
+        error: errorInfo.message,
+        currentUser: null
+      });
+      throw error;
     }
   },
 
-  // Get departments for filtering
-  getDepartments: () => {
-    const departments = [...new Set(demoUsers.map(u => u.department).filter(Boolean))];
-    return departments.sort();
+  updateProfile: async (profileData) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const response = await userService.updateProfile(profileData);
+      
+      set({
+        currentUser: response.user,
+        loading: false,
+        error: null
+      });
+      
+      handleApiSuccess(response.message || 'Profile updated successfully!');
+      
+      return {
+        success: true,
+        user: response.user,
+        message: response.message
+      };
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'Failed to update profile');
+      set({
+        loading: false,
+        error: errorInfo.message
+      });
+      throw error;
+    }
   },
 
-  // Reset store
-  reset: () => {
-    set({
-      users: [],
-      currentUser: null,
-      loading: false,
-      error: null,
-      filters: {
-        search: '',
-        role: '',
-        department: '',
-        status: '',
-        page: 1,
-        limit: 10,
-        sortBy: 'fullName',
-        sortOrder: 'asc'
-      },
-      pagination: {
-        page: 1,
-        limit: 10,
-        total: 0,
-        pages: 0
-      }
+  // Filter and pagination actions
+  setFilters: (newFilters) => {
+    set({ 
+      filters: { ...get().filters, ...newFilters },
+      pagination: { ...get().pagination, page: 1 } // Reset to first page
     });
+    // Auto-fetch with new filters
+    get().fetchUsers();
+  },
+
+  setPage: (page) => {
+    set({ 
+      pagination: { ...get().pagination, page }
+    });
+    // Auto-fetch with new page
+    get().fetchUsers({ page });
+  },
+
+  setLimit: (limit) => {
+    set({ 
+      pagination: { ...get().pagination, limit, page: 1 }
+    });
+    // Auto-fetch with new limit
+    get().fetchUsers({ limit, page: 1 });
+  },
+
+  // Clear actions
+  clearCurrentUser: () => set({ currentUser: null }),
+  clearError: () => set({ error: null }),
+  clearUsers: () => set({ 
+    users: [], 
+    pagination: { page: 1, limit: 20, total: 0, pages: 0 } 
+  }),
+
+  // Search action
+  searchUsers: (searchTerm) => {
+    get().setFilters({ search: searchTerm });
+  },
+
+  // Role filter action
+  filterByRole: (role) => {
+    get().setFilters({ role });
+  },
+
+  // Department filter action
+  filterByDepartment: (department) => {
+    get().setFilters({ department });
+  },
+
+  // Active filter action
+  filterByActive: (isActive) => {
+    get().setFilters({ isActive });
+  },
+
+  // Get user by ID from current users (avoid API call if already loaded)
+  getUserById: (userId) => {
+    const { users } = get();
+    return users.find(user => user.id === parseInt(userId)) || null;
+  },
+
+  // Refresh current data
+  refresh: () => {
+    get().fetchUsers();
   }
 }));
 

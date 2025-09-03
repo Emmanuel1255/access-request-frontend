@@ -1,190 +1,347 @@
+// src/store/authStore.js
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { demoUsers, USER_ROLES } from '../data/demoData';
+import { authService } from '../services';
+import { handleApiError, handleApiSuccess } from '../utils/errorHandler';
 
 const useAuthStore = create(
   persist(
     (set, get) => ({
+      // State
       user: null,
-      token: null,
       isAuthenticated: false,
-      permissions: [],
-
-      // Demo login - replace with real API call later
+      loading: false,
+      error: null,
+      pendingAuth: null, // For OTP verification
+      
+      // Actions
       login: async (credentials) => {
+        set({ loading: true, error: null });
+        
         try {
-          // Simulate API call
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const user = demoUsers.find(u => 
-            u.username === credentials.username && 
-            credentials.password === 'password123' // Demo password
+          const response = await authService.loginAD(
+            credentials.username, 
+            credentials.password
           );
-
-          if (!user) {
-            throw new Error('Invalid credentials');
+          
+          if (response.requiresOTP) {
+            // Store pending auth data for OTP verification
+            set({
+              loading: false,
+              pendingAuth: {
+                userId: response.userId,
+                contactInfo: response.contactInfo,
+                username: credentials.username
+              },
+              error: null
+            });
+            
+            return {
+              success: true,
+              requiresOTP: true,
+              userId: response.userId,
+              contactInfo: response.contactInfo,
+              message: response.message
+            };
+          } else {
+            // Direct login success (no OTP required)
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('refreshToken', response.refreshToken);
+            
+            set({
+              user: response.user,
+              isAuthenticated: true,
+              loading: false,
+              error: null,
+              pendingAuth: null
+            });
+            
+            handleApiSuccess(response.message || 'Login successful!');
+            
+            return {
+              success: true,
+              requiresOTP: false,
+              user: response.user,
+              message: response.message
+            };
           }
-
-          const token = 'demo-jwt-token-' + Date.now();
-          const permissions = getPermissionsByRole(user.role);
-
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            permissions
-          });
-
-          return { user, token };
         } catch (error) {
+          const errorInfo = handleApiError(error, 'Login failed');
+          set({ 
+            loading: false, 
+            error: errorInfo.message,
+            pendingAuth: null
+          });
           throw error;
         }
       },
 
-      logout: () => {
+      loginLocal: async (credentials) => {
+        set({ loading: true, error: null });
+        
+        try {
+          const response = await authService.loginLocal(
+            credentials.email, 
+            credentials.password
+          );
+          
+          if (response.requiresOTP) {
+            set({
+              loading: false,
+              pendingAuth: {
+                userId: response.userId,
+                contactInfo: response.contactInfo,
+                email: credentials.email
+              },
+              error: null
+            });
+            
+            return {
+              success: true,
+              requiresOTP: true,
+              userId: response.userId,
+              contactInfo: response.contactInfo,
+              message: response.message
+            };
+          } else {
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('refreshToken', response.refreshToken);
+            
+            set({
+              user: response.user,
+              isAuthenticated: true,
+              loading: false,
+              error: null,
+              pendingAuth: null
+            });
+            
+            handleApiSuccess(response.message || 'Login successful!');
+            
+            return {
+              success: true,
+              requiresOTP: false,
+              user: response.user,
+              message: response.message
+            };
+          }
+        } catch (error) {
+          const errorInfo = handleApiError(error, 'Login failed');
+          set({ 
+            loading: false, 
+            error: errorInfo.message,
+            pendingAuth: null
+          });
+          throw error;
+        }
+      },
+
+      verifyOTP: async (otpCode, type = 'login') => {
+        const { pendingAuth } = get();
+        if (!pendingAuth?.userId) {
+          const error = new Error('No pending authentication found');
+          handleApiError(error, 'Please restart the login process');
+          throw error;
+        }
+
+        set({ loading: true, error: null });
+        
+        try {
+          const response = await authService.verifyOTP(
+            pendingAuth.userId,
+            otpCode,
+            type
+          );
+          
+          localStorage.setItem('authToken', response.token);
+          localStorage.setItem('refreshToken', response.refreshToken);
+          
+          set({
+            user: response.user,
+            isAuthenticated: true,
+            loading: false,
+            error: null,
+            pendingAuth: null
+          });
+          
+          handleApiSuccess(response.message || 'Authentication successful!');
+          
+          return {
+            success: true,
+            user: response.user,
+            message: response.message
+          };
+        } catch (error) {
+          const errorInfo = handleApiError(error, 'OTP verification failed');
+          set({ 
+            loading: false, 
+            error: errorInfo.message
+          });
+          throw error;
+        }
+      },
+
+      resendOTP: async (type = 'login') => {
+        const { pendingAuth } = get();
+        if (!pendingAuth?.userId) {
+          const error = new Error('No pending authentication found');
+          handleApiError(error, 'Please restart the login process');
+          throw error;
+        }
+
+        set({ loading: true, error: null });
+        
+        try {
+          const response = await authService.resendOTP(pendingAuth.userId, type);
+          
+          set({ loading: false, error: null });
+          handleApiSuccess(response.message || 'OTP sent successfully!');
+          
+          return {
+            success: true,
+            message: response.message
+          };
+        } catch (error) {
+          const errorInfo = handleApiError(error, 'Failed to resend OTP');
+          set({ 
+            loading: false, 
+            error: errorInfo.message
+          });
+          throw error;
+        }
+      },
+
+      logout: async () => {
+        set({ loading: true });
+        
+        try {
+          await authService.logout();
+        } catch (error) {
+          console.error('Logout API call failed:', error);
+          // Continue with logout even if API call fails
+        }
+        
+        // Clear local storage
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        
+        // Reset state
         set({
           user: null,
-          token: null,
           isAuthenticated: false,
-          permissions: []
+          loading: false,
+          error: null,
+          pendingAuth: null
         });
-      },
-
-      // Helper methods
-      hasPermission: (permission) => {
-        const { permissions } = get();
-        return permissions.includes(permission);
-      },
-
-      isAdmin: () => {
-        const { user } = get();
-        return user?.role === USER_ROLES.ADMIN;
-      },
-
-      isManager: () => {
-        const { user } = get();
-        return user?.role === USER_ROLES.MANAGER;
-      },
-
-      isApprover: () => {
-        const { user } = get();
-        return [USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.APPROVER].includes(user?.role);
-      },
-
-      // Update profile method with signature support
-      updateProfile: (profileData) => {
-        const { user } = get();
-        const updatedUser = { ...user, ...profileData, updatedAt: new Date().toISOString() };
         
-        // Update demo data
-        const userIndex = demoUsers.findIndex(u => u.id === user.id);
-        if (userIndex !== -1) {
-          demoUsers[userIndex] = updatedUser;
+        handleApiSuccess('Logged out successfully');
+      },
+
+      refreshToken: async () => {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
         }
-        
-        set({ user: updatedUser });
-        
-        return updatedUser;
+
+        try {
+          const response = await authService.refreshToken(refreshToken);
+          
+          localStorage.setItem('authToken', response.token);
+          if (response.refreshToken) {
+            localStorage.setItem('refreshToken', response.refreshToken);
+          }
+          
+          // Update user data if provided
+          if (response.user) {
+            set({ user: response.user });
+          }
+          
+          return {
+            success: true,
+            token: response.token
+          };
+        } catch (error) {
+          // If refresh fails, logout user
+          get().logout();
+          throw error;
+        }
       },
+
+      getProfile: async () => {
+        set({ loading: true, error: null });
+        
+        try {
+          const response = await authService.getProfile();
+          
+          set({
+            user: response.user,
+            loading: false,
+            error: null
+          });
+          
+          return {
+            success: true,
+            user: response.user
+          };
+        } catch (error) {
+          const errorInfo = handleApiError(error, 'Failed to fetch profile', false);
+          set({ 
+            loading: false, 
+            error: errorInfo.message
+          });
+          throw error;
+        }
+      },
+
+      forgotPassword: async (email) => {
+        set({ loading: true, error: null });
+        
+        try {
+          const response = await authService.forgotPassword(email);
+          
+          set({ loading: false, error: null });
+          handleApiSuccess(response.message || 'Password reset instructions sent!');
+          
+          return {
+            success: true,
+            message: response.message
+          };
+        } catch (error) {
+          const errorInfo = handleApiError(error, 'Failed to send reset email');
+          set({ 
+            loading: false, 
+            error: errorInfo.message
+          });
+          throw error;
+        }
+      },
+
+      clearError: () => set({ error: null }),
       
-      // Avatar upload method
-      uploadAvatar: async (file) => {
-        try {
-          // Simulate file upload
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // In real app, upload to server and get URL
-          const avatarUrl = URL.createObjectURL(file);
-          
-          get().updateProfile({ avatarUrl });
-          return avatarUrl;
-        } catch (error) {
-          throw new Error('Failed to upload avatar');
+      clearPendingAuth: () => set({ pendingAuth: null }),
+
+      // Initialize auth state from stored tokens
+      initialize: () => {
+        const token = localStorage.getItem('authToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+        
+        if (token && refreshToken) {
+          // Try to get profile to verify token is still valid
+          get().getProfile().catch(() => {
+            // If profile fetch fails, clear tokens
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+          });
         }
-      },
-
-      // Signature upload method
-      uploadSignature: async (signatureData) => {
-        try {
-          // Simulate signature upload
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          // In real app, upload signature to server and get URL
-          // For demo, we'll store the base64 data directly
-          const signatureUrl = signatureData;
-          
-          get().updateProfile({ signatureUrl });
-          return signatureUrl;
-        } catch (error) {
-          throw new Error('Failed to upload signature');
-        }
-      },
-
-      // Get user signature for approvals
-      getUserSignature: () => {
-        const { user } = get();
-        return user?.signatureUrl || null;
-      },
-
-      // Check if user has signature
-      hasSignature: () => {
-        const { user } = get();
-        return !!(user?.signatureUrl);
-      },
-
-      // Clear signature
-      clearSignature: async () => {
-        try {
-          // Simulate API call
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
-          get().updateProfile({ signatureUrl: null });
-          return true;
-        } catch (error) {
-          throw new Error('Failed to clear signature');
-        }
-      },
+      }
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
-        permissions: state.permissions
+        isAuthenticated: state.isAuthenticated
       })
     }
   )
 );
-
-// Helper function to get permissions by role
-function getPermissionsByRole(role) {
-  const permissionMap = {
-    [USER_ROLES.ADMIN]: [
-      'manage_users',
-      'manage_templates',
-      'view_all_requests',
-      'manage_settings',
-      'view_reports',
-      'manage_system'
-    ],
-    [USER_ROLES.MANAGER]: [
-      'manage_templates',
-      'view_department_requests',
-      'approve_requests',
-      'view_reports'
-    ],
-    [USER_ROLES.APPROVER]: [
-      'approve_requests',
-      'view_assigned_requests'
-    ],
-    [USER_ROLES.USER]: [
-      'create_requests',
-      'view_own_requests'
-    ]
-  };
-  
-  return permissionMap[role] || permissionMap[USER_ROLES.USER];
-}
 
 export default useAuthStore;
